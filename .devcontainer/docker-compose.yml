@@ -20,9 +20,6 @@ services:
       - "8000:8000"
       - "3000:3000"
 
-    # Use non-root user
-    user: vscode
-
     depends_on:
       - ollama
 

@@ -18,6 +18,10 @@ class CleanRequest(BaseModel):
     system_prompt: str | None = None
 
 
+class MindMapRequest(BaseModel):
+    text: str
+
+
 service = None
 
 
@@ -113,3 +117,39 @@ async def clean_text(request: CleanRequest):
     except Exception as e:
         print(f"❌ LLM cleaning error: {e}")
         raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}") from e
+
+
+@app.post("/api/mindmap")
+async def generate_mindmap(request: MindMapRequest):
+    if not service:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    try:
+        dot_code = service.generate_mindmap(request.text)
+
+        # Convert DOT to SVG using graphviz
+        import subprocess
+        result = subprocess.run(
+            ['dot', '-Tsvg'],
+            input=dot_code.encode(),
+            capture_output=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"Graphviz error: {result.stderr.decode()}")
+
+        svg_content = result.stdout.decode()
+        return {"success": True, "svg": svg_content, "dot": dot_code}
+
+    except FileNotFoundError:
+        print("❌ Graphviz not found - install it: apt-get install graphviz")
+        raise HTTPException(
+            status_code=500,
+            detail="Graphviz not installed. Please install graphviz on the system."
+        ) from None
+    except Exception as e:
+        print(f"❌ Mind-map generation error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Mind-map generation failed: {str(e)}"
+        ) from e

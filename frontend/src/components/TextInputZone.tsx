@@ -8,6 +8,7 @@ import { Box } from './Box';
 export function TextInputZone({
   isProcessing,
   onTextSubmit,
+  onMindMapGenerate,
 }: TextInputZoneProps) {
   const [inputText, setInputText] = useState('');
 
@@ -18,6 +19,14 @@ export function TextInputZone({
 
     await onTextSubmit(inputText.trim());
     setInputText(''); // Clear after successful submission
+  };
+
+  const handleMindMapClick = async () => {
+    if (!inputText.trim() || isProcessing) {
+      return;
+    }
+
+    await onMindMapGenerate(inputText.trim());
   };
 
   const isDisabled = isProcessing || !inputText.trim();
@@ -40,14 +49,24 @@ export function TextInputZone({
           ariaLabel="Text transcript input"
         />
 
-        <button
-          className={`${styles.button} ${isDisabled ? styles.disabled : ''}`}
-          onClick={handleSubmit}
-          disabled={isDisabled}
-          type="button"
-        >
-          {isProcessing ? 'Processing...' : 'Process Text'}
-        </button>
+        <div className={styles.buttonGroup}>
+          <button
+            className={`${styles.button} ${isDisabled ? styles.disabled : ''}`}
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            type="button"
+          >
+            {isProcessing ? 'Processing...' : 'Process Text'}
+          </button>
+          <button
+            className={`${styles.button} ${isDisabled ? styles.disabled : ''}`}
+            onClick={handleMindMapClick}
+            disabled={isDisabled}
+            type="button"
+          >
+            Create Mind-map
+          </button>
+        </div>
       </Box>
     </div>
   );

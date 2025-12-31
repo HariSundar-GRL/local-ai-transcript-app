@@ -49,6 +49,7 @@ export interface UploadZoneProps {
 export interface TextInputZoneProps {
   isProcessing: boolean;
   onTextSubmit: (text: string) => Promise<void>;
+  onMindMapGenerate: (text: string) => Promise<void>;
 }
 
 export interface SettingsPanelProps {

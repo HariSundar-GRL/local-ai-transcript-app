@@ -1,0 +1,110 @@
+.container {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8);
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(91, 159, 245, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--font-size-base);
+}
+
+.svgContainer {
+  width: 100%;
+  overflow: auto;
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.svgContainer :global(svg) {
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+/* Graphviz SVG styling overrides */
+.svgContainer :global(svg text) {
+  fill: #000000;
+  font-family: var(--font-family);
+}
+
+.svgContainer :global(svg polygon),
+.svgContainer :global(svg ellipse),
+.svgContainer :global(svg path) {
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+
+.downloadButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: #1e3a5f;
+  background: white;
+  border: 1px solid rgba(30, 58, 95, 0.2);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.downloadButton:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(91, 159, 245, 0.3);
+}
+
+.downloadButton:active {
+  transform: translateY(0);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .svgContainer {
+    padding: var(--space-2);
+  }
+
+  .downloadButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

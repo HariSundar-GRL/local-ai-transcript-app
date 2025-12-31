@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     git \
+    graphviz \
     # Minimal build deps for Python packages
     gcc \
     libc6-dev \

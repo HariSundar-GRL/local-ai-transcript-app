@@ -6,6 +6,7 @@ import { UploadZone } from './components/UploadZone';
 import { TextInputZone } from './components/TextInputZone';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TranscriptionResults } from './components/TranscriptionResults';
+import { MindMapDisplay } from './components/MindMapDisplay';
 import { ErrorMessage } from './components/ErrorMessage';
 import { Footer } from './components/Footer';
 
@@ -18,6 +19,12 @@ interface TranscriptionResponse {
 interface CleanResponse {
   success: boolean;
   text?: string;
+}
+
+interface MindMapResponse {
+  success: boolean;
+  svg?: string;
+  dot?: string;
 }
 
 interface SystemPromptResponse {
@@ -37,6 +44,8 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [isCleaningWithLLM, setIsCleaningWithLLM] = useState(false);
   const [isOriginalExpanded, setIsOriginalExpanded] = useState(true);
+  const [mindMapSvg, setMindMapSvg] = useState<string | null>(null);
+  const [isGeneratingMindMap, setIsGeneratingMindMap] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -149,6 +158,8 @@ function App() {
       setRawText(null);
       setCleanedText(null);
       setIsCleaningWithLLM(false);
+      setMindMapSvg(null);
+      setIsGeneratingMindMap(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError('Microphone access denied: ' + errorMessage);
@@ -176,6 +187,8 @@ function App() {
     setCleanedText(null);
     setIsProcessing(true);
     setIsCleaningWithLLM(false);
+    setMindMapSvg(null);
+    setIsGeneratingMindMap(false);
 
     const blob = new Blob([file], { type: file.type });
     void uploadAudio(blob);
@@ -213,6 +226,8 @@ function App() {
         setCleanedText(null);
         setIsProcessing(true);
         setIsCleaningWithLLM(false);
+        setMindMapSvg(null);
+        setIsGeneratingMindMap(false);
 
         setRawText(text);
         setIsProcessing(false);
@@ -254,6 +269,45 @@ function App() {
     },
     [useLLM, systemPrompt]
   );
+
+  const handleMindMapGenerate = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+
+    try {
+      setError(null);
+      setMindMapSvg(null);
+      setIsGeneratingMindMap(true);
+
+      const mindMapResponse = await fetch('/api/mindmap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+        }),
+      });
+
+      if (!mindMapResponse.ok) {
+        setIsGeneratingMindMap(false);
+        throw new Error(
+          `Mind-map generation failed: ${mindMapResponse.statusText}`
+        );
+      }
+
+      const mindMapData = (await mindMapResponse.json()) as MindMapResponse;
+
+      if (mindMapData.success && mindMapData.svg) {
+        setMindMapSvg(mindMapData.svg);
+      }
+
+      setIsGeneratingMindMap(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError('Mind-map generation failed: ' + errorMessage);
+      setIsGeneratingMindMap(false);
+    }
+  }, []);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard
@@ -330,6 +384,7 @@ function App() {
         <TextInputZone
           isProcessing={isProcessing}
           onTextSubmit={handleTextSubmit}
+          onMindMapGenerate={handleMindMapGenerate}
         />
 
         <SettingsPanel
@@ -343,6 +398,11 @@ function App() {
         {error && (
           <ErrorMessage message={error} onDismiss={() => setError(null)} />
         )}
+
+        <MindMapDisplay
+          svgContent={mindMapSvg}
+          isGenerating={isGeneratingMindMap}
+        />
 
         <TranscriptionResults
           rawText={rawText}

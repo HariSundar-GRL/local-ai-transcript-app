@@ -23,8 +23,13 @@
   font-size: var(--font-size-sm);
 }
 
-.button {
+.buttonGroup {
+  display: flex;
+  gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+.button {
   padding: var(--space-3) var(--space-6);
   background: linear-gradient(135deg, var(--color-primary) 0%, #4a8dd8 100%);
   border: none;
@@ -37,7 +42,6 @@
   box-shadow:
     0 4px 6px rgba(91, 159, 245, 0.3),
     0 2px 4px rgba(0, 0, 0, 0.2);
-  align-self: flex-start;
 }
 
 .button:hover:not(.disabled) {
@@ -64,9 +68,13 @@
 
 /* Mobile responsive */
 @media (max-width: 640px) {
+  .buttonGroup {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
   .button {
     padding: var(--space-2-5) var(--space-5);
     font-size: var(--font-size-sm);
-    align-self: stretch;
   }
 }

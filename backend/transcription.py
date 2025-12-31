@@ -81,6 +81,59 @@ class TranscriptionService:
             print(f"⚠️  LLM error: {e}")
             return text  # Fallback to raw text
 
+    def generate_mindmap(self, text, system_prompt=None):
+        """Generate a Graphviz DOT representation of the text as a mind-map."""
+        if not text:
+            return ""
+
+        # Custom prompt for mind-map generation
+        mindmap_prompt = """You are a mind-map generator. Convert the given text into a hierarchical mind-map structure.
+
+Output ONLY valid Graphviz DOT syntax that creates a mind-map visualization. Requirements:
+1. Use 'digraph' with proper syntax
+2. Create a central topic node and branch out to subtopics
+3. Keep node labels concise (2-5 words max)
+4. Use proper node relationships with arrows (->)
+5. Add styling: node [shape=box, style=filled, fillcolor=lightblue]
+6. Do NOT include any explanation, markdown code blocks, or text outside the DOT syntax
+7. Start directly with 'digraph MindMap {'
+
+Example format:
+digraph MindMap {
+    node [shape=box, style=filled, fillcolor=lightblue]
+    "Main Topic" -> "Subtopic 1"
+    "Main Topic" -> "Subtopic 2"
+    "Subtopic 1" -> "Detail A"
+}"""
+
+        print("🧠 Generating mind-map with LLM...")
+
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.llm_model,
+                messages=[
+                    {"role": "system", "content": mindmap_prompt},
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.5,
+                max_tokens=1000,
+            )
+
+            dot_code = response.choices[0].message.content.strip()
+
+            # Remove markdown code blocks if present
+            if dot_code.startswith("```"):
+                lines = dot_code.split("\n")
+                dot_code = "\n".join(lines[1:-1]) if len(lines) > 2 else dot_code
+
+            print("🗺️ Mind-map DOT generated")
+            return dot_code
+
+        except Exception as e:
+            print(f"⚠️  Mind-map generation error: {e}")
+            # Return a simple fallback mind-map
+            return 'digraph MindMap {\n    node [shape=box, style=filled, fillcolor=lightblue]\n    "Transcript" -> "No mind-map generated"\n}'
+
     def transcribe_file(self, audio_file_path: str, use_llm: bool = True) -> dict:
         raw_text = self.transcribe(audio_file_path)
 
