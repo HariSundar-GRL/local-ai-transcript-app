@@ -29,12 +29,15 @@ This document summarizes all modifications made to run the AI Transcript App usi
 
      services:
      ```
+
    - **After:**
 
      ```yaml
      services:
      ```
+
    - **Reason:** Docker Compose v2+ doesn't require version specification and shows warnings
+
 2. **Commented out `user: vscode` directive** (Line 19)
 
    - **Before:**
@@ -94,8 +97,8 @@ This document summarizes all modifications made to run the AI Transcript App usi
 
 ### Containers Created:
 
-| Container Name            | Image                         | Purpose                                    | Ports      |
-| ------------------------- | ----------------------------- | ------------------------------------------ | ---------- |
+| Container Name          | Image                       | Purpose                                    | Ports      |
+| ----------------------- | --------------------------- | ------------------------------------------ | ---------- |
 | `devcontainer-app-1`    | `devcontainer-app` (custom) | Development environment (Python + Node.js) | 8000, 3000 |
 | `devcontainer-ollama-1` | `ollama/ollama:0.12.9`      | LLM inference server                       | 11434      |
 
@@ -155,8 +158,21 @@ docker exec -it devcontainer-ollama-1 ollama list
 
 ### **Step 4: Start Backend Server** ⭐
 
+**For Docker (Inside Container):**
+
 ```powershell
 docker exec -it devcontainer-app-1 bash -c "cd /workspaces/ai-transcript-app/backend && /workspaces/ai-transcript-app/backend/.venv/bin/uvicorn app:app --reload --host 0.0.0.0 --port 8000 --timeout-keep-alive 600"
+```
+
+**For Local Development (Windows):**
+
+```powershell
+# Ensure Graphviz is in PATH
+$env:Path += ";C:\Program Files\Graphviz\bin"
+
+# Start backend
+cd "e:\Hari Sundar\local-ai-transcript-app\backend"
+python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 **Backend will be available at:** http://localhost:8000
@@ -204,8 +220,8 @@ docker exec -it devcontainer-app-1 bash -c "cd /workspaces/ai-transcript-app/fro
 
 ## 🌐 Access Points
 
-| Service                     | URL                        | Description                          |
-| --------------------------- | -------------------------- | ------------------------------------ |
+| Service               | URL                        | Description                          |
+| --------------------- | -------------------------- | ------------------------------------ |
 | **Frontend (React)**  | http://localhost:3000      | User interface for transcription     |
 | **Backend (FastAPI)** | http://localhost:8000      | API server                           |
 | **API Docs**          | http://localhost:8000/docs | FastAPI auto-generated documentation |
@@ -274,6 +290,39 @@ docker exec -it devcontainer-app-1 npm --version
 ---
 
 ## 📦 Installed Dependencies
+
+### System Dependencies
+
+#### Graphviz (Required for Mind Map Generation)
+
+**Windows Installation:**
+
+```powershell
+# Install using Windows Package Manager
+winget install --id Graphviz.Graphviz -e --source winget
+
+# Add Graphviz to PATH for current PowerShell session
+$env:Path += ";C:\Program Files\Graphviz\bin"
+
+# Verify installation
+dot -V
+# Expected output: dot - graphviz version 14.1.1 (or higher)
+```
+
+**To permanently add Graphviz to PATH:**
+
+1. Search "Environment Variables" in Windows Start Menu
+2. Click "Edit the system environment variables"
+3. Click "Environment Variables" button
+4. Under "System variables", select "Path" and click "Edit"
+5. Click "New" and add: `C:\Program Files\Graphviz\bin`
+6. Click OK on all dialogs
+7. Restart any open terminals
+
+**Alternative (Manual Download):**
+
+- Download from: https://graphviz.org/download/#windows
+- Run installer and select "Add to PATH" option during installation
 
 ### Python Dependencies (Backend)
 

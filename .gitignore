@@ -11,6 +11,10 @@ env/
 backend/.venv/
 .ruff_cache/
 .pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
 
 # uv
 .python-version

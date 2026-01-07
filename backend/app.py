@@ -8,6 +8,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from pdf_extractor import PDFExtractor
 from transcription import TranscriptionService
 
 load_dotenv()
@@ -20,6 +21,11 @@ class CleanRequest(BaseModel):
 
 class MindMapRequest(BaseModel):
     text: str
+
+
+class PDFExtractRequest(BaseModel):
+    page_number: int
+    paragraph_index: int
 
 
 service = None
@@ -48,7 +54,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # React dev server (Vite)
-        "http://localhost:5173",  # React dev server (Vite alternative port)
+        "http://localhost:3001",  # Vite alternative port
+        "http://localhost:3002",  # Vite alternative port
+        "http://localhost:5173",  # Vite default alternative
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -153,3 +161,182 @@ async def generate_mindmap(request: MindMapRequest):
         raise HTTPException(
             status_code=500, detail=f"Mind-map generation failed: {str(e)}"
         ) from e
+
+
+@app.post("/api/pdf/info")
+async def get_pdf_info(pdf: Annotated[UploadFile, File()]):
+    """Get information about a PDF file (page count, paragraphs per page)."""
+    if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file type. Only PDF files are accepted."
+        )
+
+    # Save to temp file
+    suffix = ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await pdf.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        info = PDFExtractor.get_pdf_info(tmp_path)
+        return {"success": True, "info": info}
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="PDF file not found") from None
+    except Exception as e:
+        print(f"❌ PDF info extraction error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to read PDF: {str(e)}"
+        ) from e
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/api/pdf/extract")
+async def extract_pdf_paragraph(
+    pdf: Annotated[UploadFile, File()],
+    page_number: int,
+    paragraph_index: int,
+):
+    """
+    Extract a specific paragraph from a PDF file and return it as transcript text.
+    The paragraph can then be cleaned/processed like audio transcriptions.
+    """
+    if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file type. Only PDF files are accepted."
+        )
+
+    # Save to temp file
+    suffix = ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await pdf.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        paragraph_text = PDFExtractor.extract_paragraph(
+            tmp_path, page_number, paragraph_index
+        )
+
+        return {
+            "success": True,
+            "text": paragraph_text,
+            "source": {
+                "type": "pdf",
+                "filename": pdf.filename,
+                "page": page_number,
+                "paragraph": paragraph_index,
+            },
+        }
+
+    except (FileNotFoundError, IndexError, ValueError) as e:
+        print(f"❌ PDF extraction error: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        print(f"❌ PDF processing error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to extract paragraph: {str(e)}"
+        ) from e
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/api/pdf/extract-page")
+async def extract_pdf_page(
+    pdf: Annotated[UploadFile, File()],
+    page_number: int,
+):
+    """
+    Extract all text from a specific page of a PDF file.
+    """
+    if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file type. Only PDF files are accepted."
+        )
+
+    # Save to temp file
+    suffix = ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await pdf.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        page_text = PDFExtractor.extract_page(tmp_path, page_number)
+
+        return {
+            "success": True,
+            "text": page_text,
+            "source": {
+                "type": "pdf",
+                "filename": pdf.filename,
+                "page": page_number,
+                "extraction_mode": "page",
+            },
+        }
+
+    except (FileNotFoundError, IndexError, ValueError) as e:
+        print(f"❌ PDF page extraction error: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        print(f"❌ PDF processing error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to extract page: {str(e)}"
+        ) from e
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/api/pdf/extract-all")
+async def extract_pdf_all(
+    pdf: Annotated[UploadFile, File()],
+):
+    """
+    Extract all text from all pages of a PDF file.
+    """
+    if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file type. Only PDF files are accepted."
+        )
+
+    # Save to temp file
+    suffix = ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await pdf.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        all_text = PDFExtractor.extract_all(tmp_path)
+
+        return {
+            "success": True,
+            "text": all_text,
+            "source": {
+                "type": "pdf",
+                "filename": pdf.filename,
+                "extraction_mode": "all",
+            },
+        }
+
+    except (FileNotFoundError, ValueError) as e:
+        print(f"❌ PDF full extraction error: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        print(f"❌ PDF processing error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to extract PDF: {str(e)}"
+        ) from e
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+

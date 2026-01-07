@@ -11,13 +11,13 @@ AI-powered voice transcription with Whisper and LLM cleaning. Browser-based reco
 
 This repository uses checkpoint branches to progressively teach AI engineering concepts:
 
-| Branch | Description | Builds On | Learning Resource |
-|--------|-------------|-----------|-------------------|
-| `main` | Complete transcript app with Whisper + LLM cleaning (runs fully locally, beginner friendly) | — | [YouTube Tutorial](https://youtu.be/WUo5tKg2lnE) |
-| `checkpoint-1-fundamentals` | Exercise generation system for learning Python/TypeScript fundamentals | — | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-agentic-openrouter` | Agentic workflow with autonomous tool selection | `main` | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-pydanticai-openrouter` | PydanticAI framework for structured agent development | `checkpoint-agentic-openrouter` | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-rest-mcp-openrouter` | MCP integration with REST API and GitHub Issues | `checkpoint-pydanticai-openrouter` | [Classroom](https://aiengineer.community/join) |
+| Branch                             | Description                                                                                 | Builds On                          | Learning Resource                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| `main`                             | Complete transcript app with Whisper + LLM cleaning (runs fully locally, beginner friendly) | —                                  | [YouTube Tutorial](https://youtu.be/WUo5tKg2lnE) |
+| `checkpoint-1-fundamentals`        | Exercise generation system for learning Python/TypeScript fundamentals                      | —                                  | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-agentic-openrouter`    | Agentic workflow with autonomous tool selection                                             | `main`                             | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-pydanticai-openrouter` | PydanticAI framework for structured agent development                                       | `checkpoint-agentic-openrouter`    | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-rest-mcp-openrouter`   | MCP integration with REST API and GitHub Issues                                             | `checkpoint-pydanticai-openrouter` | [Classroom](https://aiengineer.community/join)   |
 
 > **Why "openrouter" in branch names?** These branches use [OpenRouter](https://openrouter.ai/) to access powerful cloud models that reliably support tool/function calling. Small local models struggle with agentic workflows.
 
@@ -32,6 +32,8 @@ Switch branches with: `git checkout <branch-name>`
 - 🤖 LLM cleaning (removes filler words, fixes errors)
 - 🔌 **OpenAI API-compatible** (works with Ollama, LM Studio, OpenAI, or any OpenAI-compatible API)
 - 📋 One-click copy to clipboard
+- 📄 **PDF paragraph extraction** (extract and process text from PDFs)
+- 🗺️ **Mind-map generation** (visualize transcripts as interactive diagrams)
 
 Note that the vanilla version uses a smaller language model running on your CPU.
 This means the AI may not listen to system prompts that well depending on the transcript.
@@ -222,4 +224,40 @@ Configure Docker Desktop resources:
 **Port already in use:**
 
 - Backend: Change port with `--port 8001`
+
+---
+
+## PDF Paragraph Extraction
+
+In addition to audio transcription, the app can extract and process text from PDF documents.
+
+**How to use:**
+
+1. Click the "PDF Paragraph Extraction" section
+2. Upload a PDF file
+3. View page and paragraph information
+4. Select a specific page and paragraph number
+5. Click "Extract Paragraph"
+6. The text is processed like an audio transcript (LLM cleaning, mind-map generation available)
+
+**Example workflow:**
+
+```python
+# Extract paragraph 1 from page 1 of a PDF
+POST /api/pdf/extract?page_number=1&paragraph_index=1
+# Returns the paragraph text as a "transcript"
+
+# Clean it with LLM
+POST /api/clean
+# Returns cleaned, punctuated text
+
+# Generate mind-map
+POST /api/mindmap
+# Returns SVG visualization
+```
+
+See [PDF_FEATURE.md](PDF_FEATURE.md) for complete documentation, API reference, and testing guide.
+
+---
+
 - Frontend: Edit `vite.config.js`, change `port: 3000`

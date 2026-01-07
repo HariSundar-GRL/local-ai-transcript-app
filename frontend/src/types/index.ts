@@ -68,8 +68,10 @@ export interface TranscriptionResultsProps {
   isCleaningWithLLM: boolean;
   isProcessing: boolean;
   isOriginalExpanded: boolean;
+  isGeneratingMindMap: boolean;
   onCopy: (text: string) => void;
   onToggleOriginalExpanded: () => void;
+  onMindMapGenerate: (text: string) => void;
 }
 
 export interface ErrorMessageProps {

@@ -1,4 +1,4 @@
-import { FileText, Sparkles } from 'lucide-react';
+import { FileText, Sparkles, Network } from 'lucide-react';
 import styles from './TranscriptionResults.module.css';
 import type { TranscriptionResultsProps } from '../types';
 import { TextBox } from './TextBox';
@@ -12,8 +12,10 @@ export function TranscriptionResults({
   isCleaningWithLLM,
   isProcessing,
   isOriginalExpanded,
+  isGeneratingMindMap,
   onCopy,
   onToggleOriginalExpanded,
+  onMindMapGenerate,
 }: TranscriptionResultsProps) {
   // Show component if either processing or rawText exists
   if (!isProcessing && !rawText) {
@@ -53,6 +55,18 @@ export function TranscriptionResults({
             onCopy={() => cleanedText && onCopy(cleanedText)}
             maxHeight="300px"
           />
+          {cleanedText && (
+            <button
+              className={styles.mindMapButton}
+              onClick={() => onMindMapGenerate(cleanedText)}
+              disabled={isGeneratingMindMap}
+            >
+              <Network size={20} />
+              {isGeneratingMindMap
+                ? 'Generating Mind Map...'
+                : 'Generate Mind Map'}
+            </button>
+          )}
         </Box>
       )}
 

@@ -1,3 +1,36 @@
 .container {
   margin-top: var(--space-8);
 }
+
+.mindMapButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  margin-top: 1rem;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-secondary)
+  );
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(91, 159, 245, 0.3);
+}
+
+.mindMapButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(91, 159, 245, 0.4);
+}
+
+.mindMapButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

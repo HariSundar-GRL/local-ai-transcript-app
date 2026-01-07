@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { RecordButton } from './components/RecordButton';
 import { UploadZone } from './components/UploadZone';
 import { TextInputZone } from './components/TextInputZone';
+import { PDFUpload } from './components/PDFUpload';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TranscriptionResults } from './components/TranscriptionResults';
 import { MindMapDisplay } from './components/MindMapDisplay';
@@ -270,6 +271,60 @@ function App() {
     [useLLM, systemPrompt]
   );
 
+  const handlePDFExtract = useCallback(
+    async (text: string, source: any) => {
+      if (!text.trim()) return;
+
+      try {
+        setError(null);
+        setRawText(null);
+        setCleanedText(null);
+        setIsProcessing(true);
+        setIsCleaningWithLLM(false);
+        setMindMapSvg(null);
+        setIsGeneratingMindMap(false);
+
+        setRawText(text);
+        setIsProcessing(false);
+
+        if (useLLM) {
+          setIsCleaningWithLLM(true);
+
+          const cleanResponse = await fetch('/api/clean', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: text,
+              ...(systemPrompt && { system_prompt: systemPrompt }),
+            }),
+          });
+
+          if (!cleanResponse.ok) {
+            throw new Error(`LLM cleaning failed: ${cleanResponse.statusText}`);
+          }
+
+          const cleanData = (await cleanResponse.json()) as CleanResponse;
+
+          if (!cleanData.success) {
+            throw new Error('LLM cleaning failed');
+          }
+
+          setCleanedText(cleanData.text || '');
+          setIsCleaningWithLLM(false);
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Unknown error';
+        setError('PDF processing failed: ' + errorMessage);
+        setIsProcessing(false);
+        setIsCleaningWithLLM(false);
+      }
+    },
+    [useLLM, systemPrompt]
+  );
+
   const handleMindMapGenerate = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
@@ -387,6 +442,8 @@ function App() {
           onMindMapGenerate={handleMindMapGenerate}
         />
 
+        <PDFUpload onExtract={handlePDFExtract} />
+
         <SettingsPanel
           useLLM={useLLM}
           systemPrompt={systemPrompt}
@@ -399,11 +456,6 @@ function App() {
           <ErrorMessage message={error} onDismiss={() => setError(null)} />
         )}
 
-        <MindMapDisplay
-          svgContent={mindMapSvg}
-          isGenerating={isGeneratingMindMap}
-        />
-
         <TranscriptionResults
           rawText={rawText}
           cleanedText={cleanedText}
@@ -412,11 +464,19 @@ function App() {
           isCleaningWithLLM={isCleaningWithLLM}
           isProcessing={isProcessing}
           isOriginalExpanded={isOriginalExpanded}
+          isGeneratingMindMap={isGeneratingMindMap}
           onCopy={copyToClipboard}
           onToggleOriginalExpanded={() =>
             setIsOriginalExpanded(!isOriginalExpanded)
           }
+          onMindMapGenerate={handleMindMapGenerate}
         />
+
+        <MindMapDisplay
+          svgContent={mindMapSvg}
+          isGenerating={isGeneratingMindMap}
+        />
+
         <Footer />
       </div>
     </div>
