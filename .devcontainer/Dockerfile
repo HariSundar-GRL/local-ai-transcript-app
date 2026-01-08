@@ -30,4 +30,13 @@ RUN python --version \
     && npm --version \
     && uv --version
 
+# Set working directory
+WORKDIR /workspaces/ai-transcript-app
+
+# Copy backend dependency files
+COPY backend/pyproject.toml backend/
+
+# Install Python dependencies system-wide
+RUN cd backend && uv pip install --system -e . && cd ..
+
 # Note: Non-root user is created by the common-utils feature in devcontainer.json
