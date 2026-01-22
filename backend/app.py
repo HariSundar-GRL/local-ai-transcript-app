@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from contextlib import asynccontextmanager
@@ -12,6 +13,14 @@ from pdf_extractor import PDFExtractor
 from transcription import TranscriptionService
 
 load_dotenv()
+
+# Configure logging with timestamp
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("app_debug.log"), logging.StreamHandler()],
+)
+logger = logging.getLogger(__name__)
 
 
 class CleanRequest(BaseModel):
@@ -35,15 +44,19 @@ service = None
 async def lifespan(app: FastAPI):
     """Uses OpenAI-compatible API (Ollama, OpenAI, LM Studio, etc.). Configure via .env file."""
     global service
-    print("🚀 Starting AI Transcript App...")
+    logger.info("🚀 Starting AI Transcript App...")
 
-    service = TranscriptionService(
-        whisper_model=os.getenv("WHISPER_MODEL"),
-        llm_base_url=os.getenv("LLM_BASE_URL"),
-        llm_api_key=os.getenv("LLM_API_KEY"),
-        llm_model=os.getenv("LLM_MODEL"),
-    )
-    print("✅ Ready!")
+    try:
+        service = TranscriptionService(
+            whisper_model=os.getenv("WHISPER_MODEL"),
+            llm_base_url=os.getenv("LLM_BASE_URL"),
+            llm_api_key=os.getenv("LLM_API_KEY"),
+            llm_model=os.getenv("LLM_MODEL"),
+        )
+        logger.info("✅ Ready!")
+    except Exception as e:
+        logger.error(f"Failed to initialize service: {e}", exc_info=True)
+        raise
     yield
 
 
@@ -84,23 +97,34 @@ async def get_system_prompt():
 
 @app.post("/api/transcribe")
 async def transcribe_audio(audio: Annotated[UploadFile, File()]):
+    logger.debug(f"Transcription request received for file: {audio.filename}")
+
     if not service:
+        logger.error("Service not ready for transcription request")
         raise HTTPException(
             status_code=503, detail="Service not ready, still initializing models"
         )
 
     suffix = os.path.splitext(audio.filename)[1] or ".webm"
+    logger.debug(f"Audio file suffix: {suffix}")
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await audio.read()
         tmp.write(content)
         tmp_path = tmp.name
+        logger.debug(
+            f"Audio saved to temp file: {tmp_path}, size: {len(content)} bytes"
+        )
 
     try:
         raw_text = service.transcribe(tmp_path)
+        logger.info(f"Transcription successful, text length: {len(raw_text)}")
         return {"success": True, "text": raw_text}
 
     except Exception as e:
-        print(f"❌ Transcription error: {e}")
+        logger.error(
+            f"Transcription error for file {audio.filename}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=500, detail=f"Transcription failed: {str(e)}"
         ) from e
@@ -109,55 +133,68 @@ async def transcribe_audio(audio: Annotated[UploadFile, File()]):
         # Always clean up temp file
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+            logger.debug(f"Cleaned up temp file: {tmp_path}")
 
 
 @app.post("/api/clean")
 async def clean_text(request: CleanRequest):
+    logger.debug(f"Clean text request received, text length: {len(request.text)}")
+
     if not service:
+        logger.error("Service not ready for clean text request")
         raise HTTPException(status_code=503, detail="Service not ready")
 
     try:
         cleaned_text = service.clean_with_llm(
             request.text, system_prompt=request.system_prompt
         )
+        logger.info(f"Text cleaning successful, output length: {len(cleaned_text)}")
         return {"success": True, "text": cleaned_text}
 
     except Exception as e:
-        print(f"❌ LLM cleaning error: {e}")
+        logger.error(f"LLM cleaning error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}") from e
 
 
 @app.post("/api/mindmap")
 async def generate_mindmap(request: MindMapRequest):
+    logger.debug(
+        f"Mind-map generation request received, text length: {len(request.text)}"
+    )
+
     if not service:
+        logger.error("Service not ready for mind-map generation request")
         raise HTTPException(status_code=503, detail="Service not ready")
 
     try:
         dot_code = service.generate_mindmap(request.text)
+        logger.debug(f"DOT code generated, length: {len(dot_code)}")
 
         # Convert DOT to SVG using graphviz
         import subprocess
+
         result = subprocess.run(
-            ['dot', '-Tsvg'],
-            input=dot_code.encode(),
-            capture_output=True,
-            timeout=10
+            ["dot", "-Tsvg"], input=dot_code.encode(), capture_output=True, timeout=10
         )
 
         if result.returncode != 0:
+            logger.error(f"Graphviz conversion failed: {result.stderr.decode()}")
             raise Exception(f"Graphviz error: {result.stderr.decode()}")
 
         svg_content = result.stdout.decode()
+        logger.info(
+            f"Mind-map SVG generated successfully, size: {len(svg_content)} bytes"
+        )
         return {"success": True, "svg": svg_content, "dot": dot_code}
 
     except FileNotFoundError:
-        print("❌ Graphviz not found - install it: apt-get install graphviz")
+        logger.error("Graphviz not found - install it: apt-get install graphviz")
         raise HTTPException(
             status_code=500,
-            detail="Graphviz not installed. Please install graphviz on the system."
+            detail="Graphviz not installed. Please install graphviz on the system.",
         ) from None
     except Exception as e:
-        print(f"❌ Mind-map generation error: {e}")
+        logger.error(f"Mind-map generation error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Mind-map generation failed: {str(e)}"
         ) from e
@@ -166,7 +203,10 @@ async def generate_mindmap(request: MindMapRequest):
 @app.post("/api/pdf/info")
 async def get_pdf_info(pdf: Annotated[UploadFile, File()]):
     """Get information about a PDF file (page count, paragraphs per page)."""
+    logger.debug(f"PDF info request received for file: {pdf.filename}")
+
     if not pdf.filename or not pdf.filename.lower().endswith(".pdf"):
+        logger.warning(f"Invalid file type rejected: {pdf.filename}")
         raise HTTPException(
             status_code=400, detail="Invalid file type. Only PDF files are accepted."
         )
@@ -177,15 +217,20 @@ async def get_pdf_info(pdf: Annotated[UploadFile, File()]):
         content = await pdf.read()
         tmp.write(content)
         tmp_path = tmp.name
+        logger.debug(f"PDF saved to temp file: {tmp_path}, size: {len(content)} bytes")
 
     try:
         info = PDFExtractor.get_pdf_info(tmp_path)
+        logger.info(f"PDF info extracted successfully: {info}")
         return {"success": True, "info": info}
 
     except FileNotFoundError:
+        logger.error(f"PDF file not found: {tmp_path}")
         raise HTTPException(status_code=404, detail="PDF file not found") from None
     except Exception as e:
-        print(f"❌ PDF info extraction error: {e}")
+        logger.error(
+            f"PDF info extraction error for {pdf.filename}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=500, detail=f"Failed to read PDF: {str(e)}"
         ) from e
@@ -193,6 +238,7 @@ async def get_pdf_info(pdf: Annotated[UploadFile, File()]):
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+            logger.debug(f"Cleaned up temp file: {tmp_path}")
 
 
 @app.post("/api/pdf/extract")
@@ -234,10 +280,13 @@ async def extract_pdf_paragraph(
         }
 
     except (FileNotFoundError, IndexError, ValueError) as e:
-        print(f"❌ PDF extraction error: {e}")
+        logger.error(
+            f"PDF extraction error for {pdf.filename} (page {page_number}, para {paragraph_index}): {e}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        print(f"❌ PDF processing error: {e}")
+        logger.error(f"PDF processing error for {pdf.filename}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to extract paragraph: {str(e)}"
         ) from e
@@ -245,6 +294,7 @@ async def extract_pdf_paragraph(
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+            logger.debug(f"Cleaned up temp file: {tmp_path}")
 
 
 @app.post("/api/pdf/extract-page")
@@ -282,10 +332,13 @@ async def extract_pdf_page(
         }
 
     except (FileNotFoundError, IndexError, ValueError) as e:
-        print(f"❌ PDF page extraction error: {e}")
+        logger.error(
+            f"PDF page extraction error for {pdf.filename} (page {page_number}): {e}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        print(f"❌ PDF processing error: {e}")
+        logger.error(f"PDF processing error for {pdf.filename}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to extract page: {str(e)}"
         ) from e
@@ -293,6 +346,7 @@ async def extract_pdf_page(
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+            logger.debug(f"Cleaned up temp file: {tmp_path}")
 
 
 @app.post("/api/pdf/extract-all")
@@ -328,10 +382,12 @@ async def extract_pdf_all(
         }
 
     except (FileNotFoundError, ValueError) as e:
-        print(f"❌ PDF full extraction error: {e}")
+        logger.error(
+            f"PDF full extraction error for {pdf.filename}: {e}", exc_info=True
+        )
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        print(f"❌ PDF processing error: {e}")
+        logger.error(f"PDF processing error for {pdf.filename}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to extract PDF: {str(e)}"
         ) from e
@@ -339,4 +395,4 @@ async def extract_pdf_all(
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
-
+            logger.debug(f"Cleaned up temp file: {tmp_path}")

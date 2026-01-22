@@ -4,10 +4,13 @@ Uses OpenAI API format, compatible with Ollama, OpenAI, LM Studio, and other pro
 Configuration is loaded from .env file.
 """
 
+import logging
 from pathlib import Path
 
 from faster_whisper import WhisperModel
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 # Edit system_prompt.txt to change how the LLM cleans transcriptions
 PROMPT_FILE = Path(__file__).parent / "system_prompt.txt"
@@ -20,47 +23,66 @@ class TranscriptionService:
     def __init__(
         self, whisper_model: str, llm_base_url: str, llm_api_key: str, llm_model: str
     ):
-        print(f"🔄 Loading Whisper model '{whisper_model}'...")
-        self.whisper = WhisperModel(
-            whisper_model,
-            device="auto",  # Auto-detect: Metal (Mac), CUDA (NVIDIA), or CPU
-            compute_type="int8",
-        )
-        print(f"✅ Whisper model '{whisper_model}' loaded!")
+        logger.info(f"🔄 Loading Whisper model '{whisper_model}'...")
+        try:
+            self.whisper = WhisperModel(
+                whisper_model,
+                device="auto",  # Auto-detect: Metal (Mac), CUDA (NVIDIA), or CPU
+                compute_type="int8",
+            )
+            logger.info(f"✅ Whisper model '{whisper_model}' loaded!")
+        except Exception as e:
+            logger.error(
+                f"Failed to load Whisper model '{whisper_model}': {e}", exc_info=True
+            )
+            raise
 
-        print(f"🔄 Connecting to LLM at {llm_base_url}...")
+        logger.info(f"🔄 Connecting to LLM at {llm_base_url}...")
         self.llm_client = OpenAI(base_url=llm_base_url, api_key=llm_api_key)
         self.llm_model = llm_model
 
         try:
             self.llm_client.models.list()
-            print("✅ Connected to LLM API!")
+            logger.info("✅ Connected to LLM API!")
         except Exception as e:
-            print(f"⚠️  Warning: Could not connect to LLM: {e}")
-            print(f"   Make sure your LLM server is running at {llm_base_url}")
+            logger.warning(f"Could not connect to LLM: {e}")
+            logger.warning(f"Make sure your LLM server is running at {llm_base_url}")
 
     def transcribe(self, audio_file):
-        print("🔄 Transcribing...")
+        logger.info(f"🔄 Transcribing audio file: {audio_file}")
 
-        segments, info = self.whisper.transcribe(
-            audio_file, beam_size=5, language="en", condition_on_previous_text=False
-        )
+        try:
+            segments, info = self.whisper.transcribe(
+                audio_file, beam_size=5, language="en", condition_on_previous_text=False
+            )
 
-        text = " ".join([segment.text for segment in segments]).strip()
-        print(f"📝 Raw: {text}")
-        return text
+            text = " ".join([segment.text for segment in segments]).strip()
+            logger.info(f"📝 Transcription complete. Text length: {len(text)} chars")
+            logger.debug(
+                f"Raw transcription: {text[:100]}..."
+                if len(text) > 100
+                else f"Raw transcription: {text}"
+            )
+            return text
+        except Exception as e:
+            logger.error(f"Transcription failed for {audio_file}: {e}", exc_info=True)
+            raise
 
     def get_default_system_prompt(self):
         return SYSTEM_PROMPT
 
     def clean_with_llm(self, text, system_prompt=None):
         if not text:
+            logger.debug(
+                "Empty text provided to clean_with_llm, returning empty string"
+            )
             return ""
 
         # Use custom prompt or fall back to default
         prompt_to_use = system_prompt if system_prompt else SYSTEM_PROMPT
+        logger.debug(f"Using {'custom' if system_prompt else 'default'} system prompt")
 
-        print("🤖 Cleaning with LLM...")
+        logger.info(f"🤖 Cleaning text with LLM (length: {len(text)} chars)")
 
         try:
             response = self.llm_client.chat.completions.create(
@@ -74,11 +96,19 @@ class TranscriptionService:
             )
 
             cleaned = response.choices[0].message.content.strip()
-            print(f"✨ Cleaned: {cleaned}")
+            logger.info(
+                f"✨ Text cleaned successfully (output length: {len(cleaned)} chars)"
+            )
+            logger.debug(
+                f"Cleaned text: {cleaned[:100]}..."
+                if len(cleaned) > 100
+                else f"Cleaned text: {cleaned}"
+            )
             return cleaned
 
         except Exception as e:
-            print(f"⚠️  LLM error: {e}")
+            logger.error(f"LLM cleaning error: {e}", exc_info=True)
+            logger.warning("Falling back to raw text")
             return text  # Fallback to raw text
 
     def generate_mindmap(self, text, system_prompt=None):
@@ -106,7 +136,9 @@ digraph MindMap {
     "Subtopic 1" -> "Detail A"
 }"""
 
-        print("🧠 Generating mind-map with LLM...")
+        logger.info(
+            f"🧠 Generating mind-map with LLM for text (length: {len(text)} chars)"
+        )
 
         try:
             response = self.llm_client.chat.completions.create(
@@ -120,17 +152,22 @@ digraph MindMap {
             )
 
             dot_code = response.choices[0].message.content.strip()
+            logger.debug(
+                f"Raw DOT code from LLM (length: {len(dot_code)}): {dot_code[:200]}..."
+            )
 
             # Remove markdown code blocks if present
             if dot_code.startswith("```"):
+                logger.debug("Removing markdown code block markers from DOT code")
                 lines = dot_code.split("\n")
                 dot_code = "\n".join(lines[1:-1]) if len(lines) > 2 else dot_code
 
-            print("🗺️ Mind-map DOT generated")
+            logger.info("🗺️ Mind-map DOT generated successfully")
             return dot_code
 
         except Exception as e:
-            print(f"⚠️  Mind-map generation error: {e}")
+            logger.error(f"Mind-map generation error: {e}", exc_info=True)
+            logger.warning("Returning fallback mind-map")
             # Return a simple fallback mind-map
             return 'digraph MindMap {\n    node [shape=box, style=filled, fillcolor=lightblue]\n    "Transcript" -> "No mind-map generated"\n}'
 
