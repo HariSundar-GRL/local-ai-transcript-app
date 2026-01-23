@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from dotenv import load_dotenv
@@ -15,10 +16,11 @@ from transcription import TranscriptionService
 load_dotenv()
 
 # Configure logging with timestamp
+LOG_FILE = Path(__file__).parent / "app_debug.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("app_debug.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 

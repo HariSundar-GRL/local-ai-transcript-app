@@ -92,7 +92,7 @@ class TranscriptionService:
                     {"role": "user", "content": text},
                 ],
                 temperature=0.3,
-                max_tokens=200,
+                max_tokens=2000,
             )
 
             cleaned = response.choices[0].message.content.strip()
